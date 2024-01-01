@@ -1,6 +1,6 @@
 use crate::models::Product;
 use crate::models::NewProduct;
-use crate::schema::products;
+use crate::database::products;
 use diesel::{
     query_dsl::methods::{FindDsl, LimitDsl, SelectDsl, OrderDsl},
     ExpressionMethods,

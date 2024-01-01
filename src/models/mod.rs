@@ -1,4 +1,4 @@
-use crate::schema::products;
+use crate::database::products;
 use rocket::serde::{Serialize, Deserialize};
 
 #[derive(Queryable, Serialize, Deserialize, AsChangeset)]
