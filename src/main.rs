@@ -1,9 +1,15 @@
+mod models;
+mod schema;
+
 use base64::Engine;
 use rocket::{get, launch, routes, catch, delete, put, post, catchers};
-use rocket::serde::json::{Value, serde_json::json};
+use rocket::serde::json::{Json, Value, serde_json::json};
 use rocket::request::{FromRequest, Outcome};
 use rocket::http::Status;
 use rocket_sync_db_pools::database;
+use schema::products;
+use models::{NewProduct, Product};
+use diesel::{ExpressionMethods, RunQueryDsl, query_dsl::methods::{FindDsl, LimitDsl}};
 
 // ========================= 从请求体中验证请求者的身份，使用base64(不安全，仅演示)==============================
 
@@ -63,38 +69,76 @@ impl <'a>FromRequest<'a> for BasicAuthStruct {
 #[database("sqlite_path")]
 struct DbConn(diesel::SqliteConnection);
 
-// ================================= 路由 ==============================
+// ================================= 路由CRUD ==============================
 
 #[get("/")]
-fn get_products() -> Value {
-    json!("list")
+async fn get_products(conn: DbConn) -> Value {
+    conn.run(
+        |con| {
+            let products = products::table.limit(100).load::<Product>(con).expect("Error products list");
+            json!(products)
+        }
+    ).await
 }
 
 #[get("/<id>")]
-fn view_product(id: i32) -> Value {
-    json!("get")
+async fn view_product(id: i32, conn: DbConn) -> Value {
+    conn.run(
+        move |con| {
+            let products = products::table.find(id).get_result::<Product>(con).expect("Error Get");
+            json!(products)
+        }
+    ).await
 }
 
-#[post("/")]
-fn create_product(_auth: BasicAuthStruct) -> Value {
+#[post("/", format="json", data="<new_product>")]
+async fn create_product(_auth: BasicAuthStruct, conn: DbConn, new_product: Json<NewProduct>) -> Value {
     // println!("{} {}", _auth.username, _auth.password);
-    json!("create")
+    conn.run({
+        |con| {
+            let result = diesel::insert_into(products::table)
+                            .values(new_product.into_inner())
+                            .execute(con)
+                            .expect("Error create product");
+            json!(result)
+        }
+    }).await
 }
 
-#[put("/<id>")]
-fn put_product(id: i32, _auth: BasicAuthStruct) -> Value {
-    json!("put")
+#[put("/<id>", format="json", data="<product>")]
+async fn put_product(id: i32, _auth: BasicAuthStruct, conn: DbConn, product: Json<Product>) -> Value {
+    conn.run({
+      move |con| {
+        let reuslt = diesel::update(products::table.find(id))
+                                .set((
+                                    products::name.eq(product.name.to_owned()),
+                                    products::description.eq(product.description.to_owned())
+                                ))
+                                .execute(con)
+                                .expect("Error Update");
+        json!(reuslt)
+      }  
+    }).await
 }
 
 #[delete("/<id>")]
-fn delete_product(id: i32, _auth: BasicAuthStruct) -> Value {
-    json!("delete")
+async fn delete_product(id: i32, _auth: BasicAuthStruct, coon: DbConn) -> Value {
+    coon.run(
+        move |con| {
+            let result = diesel::delete(products::table.find(id))
+                .execute(con)
+                .expect("Error to Del");
+            json!(result)
+        }
+    ).await
 }
 
 #[catch(404)]
 fn not_found_url() -> Value {
     json!("404 not found!")
 }
+
+// ================================= Main ==============================
 
 #[launch]
 fn rocket() -> _ {
