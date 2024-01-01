@@ -1,5 +1,5 @@
 use crate::schema::products;
-use rocket::serde::{Serialize, Deserialize, self};
+use rocket::serde::{Serialize, Deserialize};
 
 #[derive(Queryable, Serialize, Deserialize, AsChangeset)]
 #[serde(crate = "rocket::serde")]

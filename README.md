@@ -10,4 +10,4 @@
 
 - 生成up, down文件：`diesel migration generate create_products`
 
-- 执行数据库语句：diesel migration run --database-url=database.sqlite
+- 执行数据库语句：`diesel migration run --database-url=database.sqlite`
